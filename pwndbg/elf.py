@@ -12,45 +12,25 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import ctypes
 import os
 import re
 import subprocess
-import sys
 import tempfile
 
 import gdb
 
 import pwndbg.auxv
-import pwndbg.elftypes
 import pwndbg.events
 import pwndbg.info
 import pwndbg.memoize
 import pwndbg.memory
 import pwndbg.proc
 import pwndbg.stack
+from pwndbg.elftypes import *
 
 # ELF constants
 PF_X, PF_W, PF_R = 1,2,4
 ET_EXEC, ET_DYN  = 2,3
-
-
-module = sys.modules[__name__]
-
-@pwndbg.events.start
-@pwndbg.events.new_objfile
-def update():
-    if pwndbg.arch.ptrsize == 4:
-        Ehdr = pwndbg.elftypes.Elf32_Ehdr
-        Phdr = pwndbg.elftypes.Elf32_Phdr
-    else:
-        Ehdr = pwndbg.elftypes.Elf64_Ehdr
-        Phdr = pwndbg.elftypes.Elf64_Phdr
-
-    module.__dict__.update(locals())
-
-update()
-
 
 def read(typ, address, blob=None):
     size = ctypes.sizeof(typ)
@@ -65,7 +45,6 @@ def read(typ, address, blob=None):
     obj.type = typ
     return obj
 
-@pwndbg.proc.OnlyWhenRunning
 @pwndbg.memoize.reset_on_start
 def exe():
     """
@@ -76,7 +55,6 @@ def exe():
     if e:
         return load(e)
 
-@pwndbg.proc.OnlyWhenRunning
 @pwndbg.memoize.reset_on_start
 def entry():
     """
@@ -148,7 +126,8 @@ def get_ehdr(pointer):
     ei_class = pwndbg.memory.byte(base+4)
 
     # Find out where the section headers start
-    Elfhdr   = read(Ehdr, base)
+    EhdrType = { 1: Elf32_Ehdr, 2: Elf64_Ehdr }[ei_class]
+    Elfhdr   = read(EhdrType, base)
     return ei_class, Elfhdr
 
 def get_phdrs(pointer):
@@ -162,11 +141,13 @@ def get_phdrs(pointer):
     if Elfhdr is None:
         return (0, 0, None)
 
+    PhdrType   = { 1: Elf32_Phdr, 2: Elf64_Phdr }[ei_class]
+
     phnum     = Elfhdr.e_phnum
     phoff     = Elfhdr.e_phoff
     phentsize = Elfhdr.e_phentsize
 
-    x = (phnum, phentsize, read(Phdr, Elfhdr.address + phoff))
+    x = (phnum, phentsize, read(PhdrType, Elfhdr.address + phoff))
     return x
 
 def iter_phdrs(ehdr):
@@ -206,7 +187,7 @@ def map(pointer, objfile=''):
          Page('7ffff79a2000-7ffff79a6000 r--p 0x4000 1bb000'),
          Page('7ffff79a6000-7ffff79ad000 rw-p 0x7000 1bf000')]
     """
-    ei_class, ehdr         = get_ehdr(pointer)
+    ei_class, ehdr = get_ehdr(pointer)
     return map_inner(ei_class, ehdr, objfile)
 
 def map_inner(ei_class, ehdr, objfile):

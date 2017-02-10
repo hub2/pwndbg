@@ -22,13 +22,12 @@ pwndbg.config.Parameter('hexdump-bytes',
                          'number of bytes printed by hexdump command')
 
 parser = argparse.ArgumentParser(description='Hexdumps data at the specified address (or at $sp)')
-parser.add_argument('address', nargs='?', default='$sp', 
+parser.add_argument('address', nargs='?', default='$sp',
                     help='Address to dump')
-parser.add_argument('count', nargs='?', default=pwndbg.config.hexdump_bytes, 
+parser.add_argument('count', nargs='?', default=pwndbg.config.hexdump_bytes,
                     help='Number of bytes to dump')
 
 @pwndbg.commands.ArgparsedCommand(parser)
-@pwndbg.commands.OnlyWhenRunning
 def hexdump(address=None, count=pwndbg.config.hexdump_bytes):
     address = int(address)
     address &= pwndbg.arch.ptrmask

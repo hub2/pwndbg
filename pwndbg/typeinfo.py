@@ -34,6 +34,7 @@ def is_pointer(value):
     return type.code == gdb.TYPE_CODE_PTR
 
 @pwndbg.events.start
+@pwndbg.events.new_objfile
 @pwndbg.events.stop
 def update():
     module.char   = gdb.lookup_type('char')

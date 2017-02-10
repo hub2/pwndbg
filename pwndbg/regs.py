@@ -272,12 +272,18 @@ class module(ModuleType):
         try:
             # Seriously, gdb? Only accepts uint32.
             if 'eflags' in attr:
-                value = gdb77_get_register(attr)
-                value = value.cast(pwndbg.typeinfo.uint32)
+                getreg = gdb77_get_register
+                cast = pwndbg.typeinfo.uint32
             else:
-                value = get_register(attr)
-                value = value.cast(pwndbg.typeinfo.ptrdiff)
+                getreg = get_register
+                cast = pwndbg.typeinfo.ptrdiff
 
+            value = getreg(attr)
+
+            if value is None:
+                return None
+
+            value = value.cast(cast)
             value = int(value)
             return value & pwndbg.arch.ptrmask
         except (ValueError, gdb.error):

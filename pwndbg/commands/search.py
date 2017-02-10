@@ -48,7 +48,7 @@ auto_save = pwndbg.config.Parameter('auto-save-search', False,
                         'automatically pass --save to "search" command')
 
 parser = argparse.ArgumentParser(description='''
-Search memory for byte sequences, strings, pointers, and integer values
+Search memory for byte sequences, strings, pointers, and integer values.
 ''')
 parser.add_argument('-t', '--type', choices=['byte','short','dword','qword','pointer','string','bytes'],
                     help='Size of search target', default='bytes', type=str)
@@ -81,9 +81,11 @@ parser.add_argument('--no-save', action='store_false', default=None, dest='save'
 parser.add_argument('-n', '--next', action='store_true',
                     help='Search only locations returned by previous search with --save')
 
+
 @pwndbg.commands.ArgparsedCommand(parser)
-@pwndbg.commands.OnlyWhenRunning
 def search(type, hex, string, executable, writable, value, mapping, save, next):
+    wildcard = '?'
+
     # Adjust pointer sizes to the local architecture
     if type == 'pointer':
         type = {
@@ -94,6 +96,39 @@ def search(type, hex, string, executable, writable, value, mapping, save, next):
     if save is None:
         save = bool(pwndbg.config.auto_save_search)
 
+    # In the non-wildcard scenario, just print the results
+    if (wildcard not in value) or string:
+        hits = search_inner(type, hex, string, executable, writable, value, mapping, save, next)
+        map(print_search_hit, hits)
+        return
+
+    # This is just a basic counter that does replacement, no big deal.
+    # Each wildcard is a single nibble, so there are (16^n_wildcards) searches.
+    counter = 0
+    n_wildcards = wildcard.count('?')
+    limit = n_wildcards * 16
+    length = len(value)
+    hits = set()
+
+    while counter < limit:
+
+        # Create a hex-string which is the appropriate width
+        c = list('{0:0{1}x}'.format(counter, n_wildcards))
+
+        # Replace each wildcard in order, from end to begnning
+        v = value
+        while wildcard in value:
+            v = v.replace(wildcard, c.pop(0), 1)
+
+        print(repr(v))
+
+        # Accumulate hits
+        hits |= search_inner(type, hex, string, executable, writable, v, mapping, save, next)
+
+    map(print_search_hit, hits)
+
+
+def search_inner(type, hex, string, executable, writable, value, mapping, save, next):
     if hex:
         value = codecs.decode(value, 'hex')
 
@@ -114,7 +149,7 @@ def search(type, hex, string, executable, writable, value, mapping, save, next):
         value = struct.pack(fmt, value)
 
     # Null-terminate strings
-    elif type == 'string':
+    elif type == 'string' and value[-1] != b'\x00':
         value += b'\x00'
 
     # Prep the saved set if necessary
@@ -123,6 +158,7 @@ def search(type, hex, string, executable, writable, value, mapping, save, next):
         saved = set()
 
     # Perform the search
+    hits = set()
     for address in pwndbg.search.search(value,
                                         mapping=mapping,
                                         executable=executable,
@@ -134,4 +170,8 @@ def search(type, hex, string, executable, writable, value, mapping, save, next):
         if save:
             saved.add(address)
 
-        print_search_hit(address)
+        # Save the hits for this specific search, so we can print them
+        # all at the end.
+        hits.append(address)
+
+    return hits

@@ -30,6 +30,7 @@ def fix_arch(arch):
     return next(a for a in arches if a in arch)
 
 @pwndbg.events.start
+@pwndbg.events.new_objfile
 @pwndbg.events.stop
 def update():
     m = sys.modules[__name__]

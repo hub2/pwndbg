@@ -63,6 +63,12 @@ class StartEvent(object):
     def on_stop(self):
         self.on_new_objfile()
 
+# Event which is invoked EXACTLY ONCE, when GDB is opened for the very first time.
+#
+# The event is fired the very first time the prompt-hook is displayed.
+class InitEvent(object):
+    have_inited = False
+
 gdb.events.start = StartEvent()
 
 # In order to support reloading, we must be able to re-fire
@@ -122,13 +128,6 @@ def connect(func, event_handler, name=''):
                 traceback.print_exc()
                 raise e
 
-    registry = registered[event_handler]
-
-    for event in registry.copy():
-        if event.__name__ == func.__name__ \
-        and event.__module__ == func.__module__:
-            print("Re-registered %s" % func)
-
     registered[event_handler].append(caller)
     event_handler.connect(caller)
     return func
@@ -138,6 +137,8 @@ def cont(func):        return connect(func, gdb.events.cont, 'cont')
 def new_objfile(func): return connect(func, gdb.events.new_objfile, 'obj')
 def stop(func):        return connect(func, gdb.events.stop, 'stop')
 def start(func):       return connect(func, gdb.events.start, 'start')
+def init(func):        return connect(func, gdb.events.gdb_open, 'init')
+
 def reg_changed(func):
     try:
         return connect(func, gdb.events.register_changed, 'reg_changed')

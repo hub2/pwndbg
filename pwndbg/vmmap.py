@@ -37,6 +37,8 @@ explored_pages = []
 @pwndbg.events.new_objfile
 @pwndbg.memoize.reset_on_stop
 def get():
+    import pdb
+    pdb.set_trace()
     pages = []
     pages.extend(proc_pid_maps())
 
@@ -237,7 +239,7 @@ def info_sharedlibrary():
 @pwndbg.memoize.reset_on_stop
 def info_files():
 
-    example_info_files_linues = """
+    example_info_files_lines_linux = """
     Symbols from "/bin/bash".
     Unix child process:
     Using the running image of child process 5903.
@@ -254,6 +256,28 @@ def info_files():
     0x00007ffff7dda1f0 - 0x00007ffff7dda2ac is .hash in /lib64/ld-linux-x86-64.so.2
     0x00007ffff7dda2b0 - 0x00007ffff7dda38c is .gnu.hash in /lib64/ld-linux-x86-64.so.2
     """
+
+    example_info_files_lines_macosx = """
+    Symbols from "/usr/local/Cellar/bash/4.4.5/bin/bash".
+    Local exec file:
+        `/usr/local/Cellar/bash/4.4.5/bin/bash', file type mach-o-x86-64.
+        Entry point: 0x100001aa8
+        0x0000000100001aa8 - 0x000000010009bb3d is .text
+        0x000000010009bb3e - 0x000000010009c030 is __TEXT.__stubs
+        0x000000010009c030 - 0x000000010009c87e is __TEXT.__stub_helper
+        0x000000010009c87e - 0x00000001000b15ae is .cstring
+        0x00000001000b15b0 - 0x00000001000b3980 is .const
+        0x00000001000b3980 - 0x00000001000b4ff4 is __TEXT.__unwind_info
+        0x00000001000b5000 - 0x00000001000b51c8 is __DATA.__got
+        0x00000001000b51c8 - 0x00000001000b51d8 is __DATA.__nl_symbol_ptr
+        0x00000001000b51d8 - 0x00000001000b5870 is __DATA.__la_symbol_ptr
+        0x00000001000b5870 - 0x00000001000b8c48 is .const_data
+        0x00000001000b8c50 - 0x00000001000c01a8 is .data
+        0x00000001000c01b0 - 0x00000001000c53b0 is __DATA.__common
+        0x00000001000c53b0 - 0x00000001000c7798 is .bss
+    """
+    import pdb
+    pdb.set_trace()
 
     seen_files = set()
     pages      = list()
@@ -287,7 +311,12 @@ def info_files():
         else:
             seen_files.add(objfile)
 
-        pages.extend(pwndbg.elf.map(vaddr, objfile))
+        mapping = pwndbg.elf.map(vaddr, objfile)
+
+        if mapping is None:
+            mapping = pwndbg.memory.Page(vaddr, size, flags, offset)
+
+        pages.extend()
 
     return tuple(pages)
 

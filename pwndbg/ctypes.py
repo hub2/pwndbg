@@ -13,23 +13,48 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import ctypes
-import sys
+import struct
+
+import six
 
 import pwndbg.arch
 import pwndbg.events
+import pwndbg.memory
 
-module = sys.modules[__name__]
+endian = {'big': '>', 'little': '<'}
 
-@pwndbg.events.start
-@pwndbg.events.new_objfile
-def update():
-    global module
+def getattribute(self, attrname):
+    value = super(EndianAwareStructure, self).__getattribute__(attrname)
 
-    if pwndbg.arch.endian == 'little':
-        Structure = ctypes.LittleEndianStructure
-    else:
-        Structure = ctypes.BigEndianStructure
+    if pwndbg.arch.endian == pwndbg.arch.native_endian:
+        return value
 
-    module.__dict__.update(locals())
+    if attrname == '_fields_':
+        return value
 
-update()
+    for field in self._fields_:
+        name = field[0]
+        typ = field[1]
+
+        if name != attrname:
+            continue
+
+        if isinstance(typ._type_, six.string_types):
+            fmt_orig = typ._type_
+            fmt_endian = endian[pwndbg.arch.endian] + fmt_orig
+            value = struct.pack(fmt_orig, value)
+            value = struct.unpack(fmt_endian, value)[0]
+
+    return value
+
+
+class EndianAwareStructure(ctypes.Structure):
+    def __getattribute__(self, attrname):
+        return getattribute(self, attrname)
+
+class EndianAwareUnion(ctypes.Union):
+    def __getattribute__(self, attrname):
+        return getattribute(self, attrname)
+
+Union = EndianAwareUnion
+Structure = EndianAwareStructure

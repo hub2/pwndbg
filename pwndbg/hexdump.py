@@ -53,7 +53,25 @@ def load_color_scheme():
     color_scheme[-1] = '  '
     printable[-1] = ' '
 
-def hexdump(data, address = 0, width = 16, skip = True):
+def hexdump(data, address = 0, width = 16, skip = True,
+            addr_callback=lambda addr, text: text,
+            hex_callback=lambda addr, text: text,
+            ascii_callback=lambda addr, text: text):
+    """Returns an iterator over the colorized, hex-dumped data.
+
+    Arguments:
+        data(bytes): Raw data to dump
+        address(int): Address of the first byte, used for the left column
+        width(int): Width of the display, in bytes.  Must be a multiple of 4.
+        skip(bool): Whether to skip repeating chunks of data
+        addr_callback(func): Callable to augment the colorized address.
+        hex_callback(func): Callable to augment the colorized hex data.
+            Signature is callback(address, text) where address is the address
+            of the bute, and text is the colorized text which is emitted at that
+            address.  This callback is on the hex representation.
+        ascii_callback(func): Callable to augment the colorized ASCII data.
+
+    """
     if not color_scheme or not printable:
         load_color_scheme()
     data = list(bytearray(data))
@@ -72,24 +90,29 @@ def hexdump(data, address = 0, width = 16, skip = True):
 
         hexline = []
 
-        if address:
-            hexline.append(H.offset("+%04x " % (i*width)))
-
+        hexline.append(H.offset("+%04x " % (i*width)))
         hexline.append(H.address("%#08x  " % (base + (i*width))))
 
+        hexaddr = address
         for group in groupby(line, 4):
             for char in group:
-                hexline.append(color_scheme[char])
+                char = hex_callback(hexaddr, color_scheme[char])
+                hexline.append(char)
                 hexline.append(' ')
+                hexaddr += 1
             hexline.append(' ')
 
         hexline.append(H.separator('%s' % config_separator))
+
+        ascaddr = address
         for group in groupby(line, 4):
             for char in group:
-                hexline.append(printable[char])
+                char = ascii_callback(ascaddr, printable[char])
+                hexline.append(char)
+                ascaddr += 1
             hexline.append(H.separator('%s' % config_separator))
 
-
+        address += width
         yield(''.join(hexline))
 
     hexline = []
